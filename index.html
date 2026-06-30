@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MV 字幕優化助手</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>MV 字幕優化助手</h1>
+        <p class="subtitle">VLLO 字幕 × Mureka 歌詞比對校正，一鍵匯出 ASS 字幕</p>
+
+        <!-- 步驟 1 -->
+        <div class="card">
+            <h3>① VLLO 原始字幕檔</h3>
+            <div class="file-upload">
+                <input type="file" id="srtFile" accept=".srt">
+                <label for="srtFile" class="btn-secondary">選擇 .srt 檔案</label>
+                <span id="fileName">尚未選擇檔案</span>
+            </div>
+        </div>
+
+        <!-- 步驟 2 -->
+        <div class="card">
+            <h3>② Mureka 正確歌詞（直接貼上）</h3>
+            <textarea id="lyricsInput" placeholder="每行一句歌詞，空行會自動忽略..."></textarea>
+        </div>
+
+        <!-- 步驟 3 -->
+        <div class="card">
+            <h3>③ 贅字過濾與字體設定</h3>
+            <div class="form-group">
+                <label>贅字過濾清單（以逗號隔開）：</label>
+                <input type="text" id="fillersInput" value="啊,喔,耶,呀,呢,呃,哈,嘛,吧">
+            </div>
+            <div class="row">
+                <div class="form-group col">
+                    <label>字體名稱：</label>
+                    <input type="text" id="fontName" value="微軟正黑體">
+                </div>
+                <div class="form-group col">
+                    <label>字體大小：</label>
+                    <input type="number" id="fontSize" value="24">
+                </div>
+                <div class="form-group col">
+                    <label>字體顏色：</label>
+                    <input type="color" id="fontColor" value="#FFFFFF">
+                </div>
+            </div>
+        </div>
+
+        <button id="processBtn" class="btn-primary">一鍵優化並匯出 ASS 字幕</button>
+    </div>
+    <script href="app.js" src="app.js"></script>
+</body>
+</html>
