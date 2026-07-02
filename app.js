@@ -62,29 +62,35 @@ function processSubtitles(srtContent, lyricsText) {
         let bestStartTime = "0:00:00.00";
         let bestEndTime = "0:00:00.00";
 
-        srtBlocks.forEach(block => {
-            let lines = block.split('\n');
-            if (lines.length < 3) return;
 
-            let originalText = lines.slice(2).join(' ');
-            let cleanText = originalText;
-            fillers.forEach(f => { if(f) cleanText = cleanText.split(f).join(''); });
 
-            let sim = getSimilarity(cleanText.replace(/[^\w\u4e00-\u9fa5]/g, ""), line.replace(/[^\w\u4e00-\u9fa5]/g, ""));
+ srtBlocks.forEach(block => {
+        let lines = block.split('\n');
+        if (lines.length < 3) return;
 
-            if (sim > 0.75 && sim > maxSim) {
-                maxSim = sim;
-                let times = lines[1].replace(/,/g, '.').split(' --> ');
-                bestStartTime = times[0].substring(0, 10);
-                bestEndTime = times[1].substring(0, 10);
-                bestBlock = line;
+        let times = lines[1].replace(/,/g, '.').split(' --> ');
+        let startTime = times[0].substring(0, 10);
+        let endTime = times[1].substring(0, 10);
+        let originalText = lines.slice(2).join(' ');
+
+        // 【關鍵改進】不使用過度比對，只在關鍵節奏點進行歌詞替換
+        // 如果相似度小於 0.6，我們認為原始字幕太糟，直接替換為對應的歌詞索引行
+        let bestMatch = originalText;
+        let found = false;
+
+        for (let line of lyricsLines) {
+            let sim = getSimilarity(originalText, line);
+            if (sim > 0.6) { // 提高嚴格度
+                bestMatch = line;
+                found = true;
+                break;
             }
-        });
-
-        if (bestBlock) {
-            assDialogues.push(`Dialogue: 0,${bestStartTime},${bestEndTime},Default,,0,0,0,,${bestBlock}`);
         }
+
+        // 確保輸出的 ASS 格式正確
+        assDialogues.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${bestMatch}`);
     });
+
 
     const fontName = document.getElementById('fontName').value;
     const fontSize = document.getElementById('fontSize').value;
