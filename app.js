@@ -1,10 +1,9 @@
-// 檔案選取更換名稱
+// app.js - 完整優化版
 document.getElementById('srtFile').addEventListener('change', function(e) {
     const fileName = e.target.files[0] ? e.target.files[0].name : "尚未選擇檔案";
     document.getElementById('fileName').innerText = fileName;
 });
 
-// 核心比對演算法：最小編輯距離 (Levenshtein Distance) 算相似度
 function getSimilarity(s1, s2) {
     let longer = s1; let shorter = s2;
     if (s1.length < s2.length) { longer = s2; shorter = s1; }
@@ -35,11 +34,10 @@ function editDistance(s1, s2) {
     return costs[s2.length];
 }
 
-// 點擊處理主邏輯
 document.getElementById('processBtn').addEventListener('click', function() {
     const srtFile = document.getElementById('srtFile').files[0];
     const lyricsText = document.getElementById('lyricsInput').value;
-    
+
     if (!srtFile || !lyricsText.trim()) {
         alert('請上傳 SRT 檔案並貼上正確歌詞！');
         return;
@@ -47,77 +45,52 @@ document.getElementById('processBtn').addEventListener('click', function() {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const srtContent = e.target.result;
-        processSubtitles(srtContent, lyricsText);
+        processSubtitles(e.target.result, lyricsText);
     };
     reader.readAsText(srtFile);
 });
 
 function processSubtitles(srtContent, lyricsText) {
     const fillers = document.getElementById('fillersInput').value.split(',').map(s => s.trim());
-    const fontName = document.getElementById('fontName').value;
-    const fontSize = document.getElementById('fontSize').value;
-    // 將 #FFFFFF 轉成 ASS 格式的 &HFFFFFF&
-    const htmlColor = document.getElementById('fontColor').value.toUpperCase();
-    const assColor = `&H00${htmlColor.substring(5,7)}${htmlColor.substring(3,5)}${htmlColor.substring(1,3)}&`;
-
-    // 解析歌詞庫
     const lyricsLines = lyricsText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    // 解析 SRT 檔
     const srtBlocks = srtContent.replace(/\r\n/g, '\n').split('\n\n');
     let assDialogues = [];
-    let lyricsIdx = 0;
 
-    srtBlocks.forEach(block => {
-        const lines = block.trim().split('\n');
-        if (lines.length >= 3) {
-            const timeLine = lines[1];
-            // 轉換時間格式 00:00:01,200 -> 0:00:01.20
-            const assTime = timeLine.replace(/,/g, '.').replace(/00:/g, '0:').substring(0, 22);
-            const times = assTime.split(' --> ');
-            const startTime = times[0].substring(0, 10);
-            const endTime = times[1].substring(0, 10);
+    lyricsLines.forEach((line) => {
+        let bestBlock = null;
+        let maxSim = 0;
+        let bestStartTime = "0:00:00.00";
+        let bestEndTime = "0:00:00.00";
+
+        srtBlocks.forEach(block => {
+            let lines = block.split('\n');
+            if (lines.length < 3) return;
 
             let originalText = lines.slice(2).join(' ');
-            
-            // 清理填充詞做比對
             let cleanText = originalText;
             fillers.forEach(f => { if(f) cleanText = cleanText.split(f).join(''); });
-            cleanText = cleanText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()？，。！「」]/g, "");
 
-            let bestMatch = originalText;
-            let maxSim = 0;
-            let chosenIdx = lyricsIdx;
+            let sim = getSimilarity(cleanText.replace(/[^\w\u4e00-\u9fa5]/g, ""), line.replace(/[^\w\u4e00-\u9fa5]/g, ""));
 
-            // 在目前歌詞指標後 5 句內找尋最佳匹配
-            const searchWindow = 5;
-            for (let i = 0; i < searchWindow; i++) {
-                let currentCheckIdx = lyricsIdx + i;
-                if (currentCheckIdx >= lyricsLines.length) break;
-
-                let targetLyrics = lyricsLines[currentCheckIdx];
-                let cleanTarget = targetLyrics.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()？，。！「」]/g, "");
-                
-                let sim = getSimilarity(cleanText, cleanTarget);
-                if (sim > maxSim) {
-                    maxSim = sim;
-                    bestMatch = targetLyrics;
-                    chosenIdx = currentCheckIdx;
-                }
+            if (sim > 0.75 && sim > maxSim) {
+                maxSim = sim;
+                let times = lines[1].replace(/,/g, '.').split(' --> ');
+                bestStartTime = times[0].substring(0, 10);
+                bestEndTime = times[1].substring(0, 10);
+                bestBlock = line;
             }
+        });
 
-            // 相似度大於 0.45 則進行取代並推進歌詞指標
-            if (maxSim > 0.45) {
-                originalText = bestMatch;
-                lyricsIdx = chosenIdx + 1;
-            }
-
-            assDialogues.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${originalText}`);
+        if (bestBlock) {
+            assDialogues.push(`Dialogue: 0,${bestStartTime},${bestEndTime},Default,,0,0,0,,${bestBlock}`);
         }
     });
 
-    // 組裝 ASS 檔案標頭與樣式
+    const fontName = document.getElementById('fontName').value;
+    const fontSize = document.getElementById('fontSize').value;
+    const htmlColor = document.getElementById('fontColor').value.toUpperCase();
+    const assColor = `&H00${htmlColor.substring(5,7)}${htmlColor.substring(3,5)}${htmlColor.substring(1,3)}&`;
+
     const assHeader = `[Script Info]
 Title: MV Subtitle Helper Output
 ScriptType: v4.00+
@@ -134,8 +107,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
     const finalAssContent = assHeader + assDialogues.join('\n');
-    
-    // 讓瀏覽器下載檔案
     const blob = new Blob(["\ufeff" + finalAssContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -145,4 +116,5 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    alert('字幕處理完成，準備下載！');
 }
